@@ -7,8 +7,8 @@ int16_t gyro[3];
 void setup()
 {
     Serial.begin(9600);
-    imu.init();
     imu.calibrate();
+    imu.init();
 }
 
 void loop()
