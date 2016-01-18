@@ -1,3 +1,15 @@
+// MPU-9250 Gyro Example
+// Jordan Day
+
+/*
+=========================================
+This code is placed under the MIT license
+Copyright (c) 2016 Jordan Day
+
+Please reference the LICENSE file
+=========================================
+*/
+
 #include "MPU9250.h"
 
 MPU9250 imu;
