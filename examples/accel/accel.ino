@@ -1,4 +1,4 @@
-// MPU-9250 Accelerator Example
+// MPU-9250 Accelerometer Example
 // Jordan Day
 
 /*
