@@ -226,6 +226,8 @@ class MPU9250
 public:
     uint8_t GyroScale = GFS_250DPS;
     uint8_t AccelScale = AFS_2G;
+    uint16_t gyroSensitivity = 131;
+    uint16_t accelSensitivity = 16384;
     float accelRes, gyroRes, magRes;
 
     MPU9250();
