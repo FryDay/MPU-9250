@@ -11,7 +11,6 @@ Please reference the LICENSE file
 */
 
 #include "MPU9250.h"
-#define alpha 0.5f
 
 MPU9250 imu;
 
