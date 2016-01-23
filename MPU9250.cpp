@@ -69,7 +69,7 @@ void MPU9250::calibrate()
     int32_t accelFactory[3] = {0, 0, 0}; // A place to hold the factory accelerometer trim biases
     uint32_t temperatureMask = 1uL; // Define mask for temperature compensation bit 0 of lower byte of accelerometer bias registers
     uint8_t maskBit[3] = {0, 0, 0}; // Define array to hold mask bit for each accelerometer bias axis
-    int32_t gyroOffset[3] = {0, 0, 0}, accelOffset[3] = {0, 0, 0};
+    int32_t gyroOffset[3] = {0, 0, 0};
 
     //Reset
     writeByte(PWR_MGMT_1, 0x80);
@@ -150,43 +150,6 @@ void MPU9250::calibrate()
     writeByte(YG_OFFSET_L, data[3]);
     writeByte(ZG_OFFSET_H, data[4]);
     writeByte(ZG_OFFSET_L, data[5]);
-
-    // Read factory accelerometer trim values. These are non-zero at startup.
-    readBytes(XA_OFFSET_H, 2, &data[0]);
-    accelFactory[0] = (int32_t) (((int16_t)data[0] << 8) | data[1]);
-    readBytes(YA_OFFSET_H, 2, &data[0]);
-    accelFactory[1] = (int32_t) (((int16_t)data[0] << 8) | data[1]);
-    readBytes(ZA_OFFSET_H, 2, &data[0]);
-    accelFactory[2] = (int32_t) (((int16_t)data[0] << 8) | data[1]);
-
-    // Account for temperature offset.
-    for(index = 0; index < 3; index++)
-    {
-        if((accelFactory[index] & temperatureMask)) maskBit[index] = 0x01; // If temperature compensation bit is set, record that fact in maskBit
-    }
-
-    // Construct total accelerometer offset.
-    accelFactory[0] -= (accelOffset[0]/8);
-    accelFactory[1] -= (accelOffset[1]/8);
-    accelFactory[2] -= (accelOffset[2]/8);
-
-    data[0] = (accelFactory[0] >> 8) & 0xFF;
-    data[1] = (accelFactory[0])      & 0xFF;
-    data[1] = data[1] | maskBit[0]; // Preserve temperature compensation.
-    data[2] = (accelFactory[1] >> 8) & 0xFF;
-    data[3] = (accelFactory[1])      & 0xFF;
-    data[3] = data[3] | maskBit[1]; // Preserve temperature compensation.
-    data[4] = (accelFactory[2] >> 8) & 0xFF;
-    data[5] = (accelFactory[2])      & 0xFF;
-    data[5] = data[5] | maskBit[2]; // Preserve temperature compensation.
-
-    // Write accel offsets.
-    writeByte(XA_OFFSET_H, data[0]);
-    writeByte(XA_OFFSET_L, data[1]);
-    writeByte(YA_OFFSET_H, data[2]);
-    writeByte(YA_OFFSET_L, data[3]);
-    writeByte(ZA_OFFSET_H, data[4]);
-    writeByte(ZA_OFFSET_L, data[5]);
 }
 
 uint8_t MPU9250::whoAmI()
@@ -198,9 +161,9 @@ void MPU9250::readAccelData(int16_t* dest)
 {
   uint8_t rawData[6];
   readBytes(ACCEL_XOUT_H, 6, &rawData[0]);
-  dest[0] = ((int16_t)rawData[0] << 8) | rawData[1];
-  dest[1] = ((int16_t)rawData[2] << 8) | rawData[3];
-  dest[2] = ((int16_t)rawData[4] << 8) | rawData[5];
+  dest[0] = (((int16_t)rawData[0] << 8) | rawData[1]) - accelOffset[0];
+  dest[1] = (((int16_t)rawData[2] << 8) | rawData[3]) - accelOffset[1];
+  dest[2] = (((int16_t)rawData[4] << 8) | rawData[5]) - accelOffset[2];
 }
 
 void MPU9250::readGyroData(int16_t* dest)
