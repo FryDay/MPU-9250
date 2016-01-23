@@ -226,6 +226,7 @@ class MPU9250
 public:
     uint8_t GyroScale = GFS_250DPS;
     uint8_t AccelScale = AFS_2G;
+    float accelRes, gyroRes, magRes;
 
     MPU9250();
     void init();
@@ -236,6 +237,9 @@ public:
     void readAccelData(int16_t* dest);
     void readGyroData(int16_t* dest);
 private:
+    void setGyroRes();
+    void setAccelRes();
+    void setMagRes();
     void writeByte(uint8_t reg, uint8_t data);
     void writeBytes(uint8_t reg, uint8_t* data, uint8_t length);
     uint8_t readByte(uint8_t reg);

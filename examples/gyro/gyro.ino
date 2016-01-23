@@ -15,6 +15,7 @@ Please reference the LICENSE file
 MPU9250 imu;
 
 int16_t gyro[3];
+float fX, fY, fZ;
 
 void setup()
 {
@@ -27,43 +28,47 @@ void loop()
 {
     imu.readGyroData(&gyro[0]);
 
-    // Display pitch in degrees per second
-    Serial.print("Pitch:");
-    if (gyro[0] >= 0)
-        Serial.print("+");
-    Serial.print(gyro[0] / 57.14286, 0);
+    // Convert raw data to degrees per second
+    fX = (float)gyro[0] * imu.gyroRes;
+    fY = (float)gyro[1] * imu.gyroRes;
+    fZ = (float)gyro[2] * imu.gyroRes;
 
-    if (gyro[0]/57.14286 - 2 > 0)
+    Serial.print("Pitch:");
+    if (fX >= 0)
+        Serial.print("+");
+    Serial.print(fX, 0);
+
+    if (fX - 2 > 0)
         Serial.print(" NoU\t");
-    else if (gyro[0] / 57.14286 + 2 < 0)
+    else if (fX + 2 < 0)
         Serial.print(" NoD\t");
     else
         Serial.print(" ---\t");
 
     // Display roll in degrees per second
     Serial.print("  Roll:");
-    if (gyro[1] >= 0)
+    if (fY >= 0)
         Serial.print("+");
 
-    Serial.print(gyro[1]/57.14286, 0);
+    Serial.print(fY, 0);
 
-    if (gyro[1]/57.14286 - 2 > 0)
+    if (fY - 2 > 0)
         Serial.print(" RwD\t");
-    else if (gyro[1]/57.14286 + 2 < 0)
+    else if (fY + 2 < 0)
         Serial.print(" RwU\t");
     else
         Serial.print(" ---\t");
 
     // Display yaw in degrees per second
     Serial.print("  Yaw:");
-    if (gyro[2] >= 0)
+    if (fZ >= 0)
         Serial.print("+");
 
-    Serial.print(gyro[2] / 57.14286, 0);
+    Serial.print(fZ, 0);
 
-    if (gyro[2] / 57.14286 - 2 > 0)
+    if (fZ - 2 > 0)
         Serial.println(" NoR\t");
-    else if (gyro[2] / 57.14286 + 2 < 0)
+    else if (fZ + 2 < 0)
         Serial.println(" NoL\t");
     else
         Serial.println(" ---\t");

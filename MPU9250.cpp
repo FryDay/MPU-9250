@@ -56,12 +56,19 @@ void MPU9250::init()
     writeByte(INT_PIN_CFG, 0x22);
     writeByte(INT_ENABLE, 0x01);
     delay(100);
+
+    setGyroRes();
+    setAccelRes();
+    setMagRes();
 }
 
 void MPU9250::calibrate()
 {
     uint8_t data[12];
     uint16_t index, cycleCount, fifoCount;
+    int32_t accelFactory[3] = {0, 0, 0}; // A place to hold the factory accelerometer trim biases
+    uint32_t temperatureMask = 1uL; // Define mask for temperature compensation bit 0 of lower byte of accelerometer bias registers
+    uint8_t maskBit[3] = {0, 0, 0}; // Define array to hold mask bit for each accelerometer bias axis
     int32_t gyroOffset[3] = {0, 0, 0}, accelOffset[3] = {0, 0, 0};
 
     //Reset
@@ -138,6 +145,49 @@ void MPU9250::calibrate()
     writeByte(YG_OFFSET_L, data[3]);
     writeByte(ZG_OFFSET_H, data[4]);
     writeByte(ZG_OFFSET_L, data[5]);
+
+    // Construct the accelerometer biases for push to the hardware accelerometer bias registers. These registers contain
+    // factory trim values which must be added to the calculated accelerometer biases; on boot up these registers will hold
+    // non-zero values. In addition, bit 0 of the lower byte must be preserved since it is used for temperature
+    // compensation calculations. Accelerometer bias registers expect bias input as 2048 LSB per g, so that
+    // the accelerometer biases calculated above must be divided by 8.
+
+    readBytes(XA_OFFSET_H, 2, &data[0]); // Read factory accelerometer trim values
+    accelFactory[0] = (int32_t) (((int16_t)data[0] << 8) | data[1]);
+    readBytes(YA_OFFSET_H, 2, &data[0]);
+    accelFactory[1] = (int32_t) (((int16_t)data[0] << 8) | data[1]);
+    readBytes(ZA_OFFSET_H, 2, &data[0]);
+    accelFactory[2] = (int32_t) (((int16_t)data[0] << 8) | data[1]);
+
+    for(index = 0; index < 3; index++)
+    {
+        if((accelFactory[index] & temperatureMask)) maskBit[index] = 0x01; // If temperature compensation bit is set, record that fact in maskBit
+    }
+
+    // Construct total accelerometer bias, including calculated average accelerometer bias from above
+    accelFactory[0] -= (accelOffset[0]/8); // Subtract calculated averaged accelerometer bias scaled to 2048 LSB/g (16 g full scale)
+    accelFactory[1] -= (accelOffset[1]/8);
+    accelFactory[2] -= (accelOffset[2]/8);
+
+    data[0] = (accelFactory[0] >> 8) & 0xFF;
+    data[1] = (accelFactory[0])      & 0xFF;
+    data[1] = data[1] | maskBit[0]; // preserve temperature compensation bit when writing back to accelerometer bias registers
+    data[2] = (accelFactory[1] >> 8) & 0xFF;
+    data[3] = (accelFactory[1])      & 0xFF;
+    data[3] = data[3] | maskBit[1]; // preserve temperature compensation bit when writing back to accelerometer bias registers
+    data[4] = (accelFactory[2] >> 8) & 0xFF;
+    data[5] = (accelFactory[2])      & 0xFF;
+    data[5] = data[5] | maskBit[2]; // preserve temperature compensation bit when writing back to accelerometer bias registers
+
+    // Apparently this is not working for the acceleration biases in the MPU-9250
+    // Are we handling the temperature correction bit properly?
+    // Push accelerometer biases to hardware registers
+    writeByte(XA_OFFSET_H, data[0]);
+    writeByte(XA_OFFSET_L, data[1]);
+    writeByte(YA_OFFSET_H, data[2]);
+    writeByte(YA_OFFSET_L, data[3]);
+    writeByte(ZA_OFFSET_H, data[4]);
+    writeByte(ZA_OFFSET_L, data[5]);
 }
 
 uint8_t MPU9250::whoAmI()
@@ -161,6 +211,60 @@ void MPU9250::readGyroData(int16_t* dest)
   dest[0] = (((int16_t)rawData[0] << 8) | rawData[1]);
   dest[1] = (((int16_t)rawData[2] << 8) | rawData[3]);
   dest[2] = (((int16_t)rawData[4] << 8) | rawData[5]);
+}
+
+// ----- Private -----
+
+// Res = Range / pow(2, Resolution-1)
+// 16 bit resolution
+// pow(2, 16-1) = 32768.0
+void MPU9250::setGyroRes()
+{
+    switch (GyroScale)
+    {
+        case GFS_250DPS:
+            gyroRes = 250.0 / 32768.0;
+            break;
+        case GFS_500DPS:
+            gyroRes = 500.0 / 32768.0;
+            break;
+        case GFS_1000DPS:
+            gyroRes = 1000.0 / 32768.0;
+            break;
+        case GFS_2000DPS:
+            gyroRes = 2000.0 / 32768.0;
+            break;
+    }
+}
+
+// Res = Range / pow(2, Resolution-1)
+// 16 bit resolution
+// pow(2, 16-1) = 32768.0
+void MPU9250::setAccelRes()
+{
+    switch (AccelScale)
+    {
+        case AFS_2G:
+            accelRes = 2.0 / 32768.0;
+            break;
+        case AFS_4G:
+            accelRes = 4.0 / 32768.0;
+            break;
+        case AFS_8G:
+            accelRes = 8.0 / 32768.0;
+            break;
+        case AFS_16G:
+            accelRes = 16.0 / 32768.0;
+            break;
+    }
+}
+
+// Res = Range / pow(2, Resolution-1)
+// 16 bit resolution
+// pow(2, 16-1) = 32768.0
+void MPU9250::setMagRes()
+{
+
 }
 
 void MPU9250::writeByte(uint8_t reg, uint8_t data)
