@@ -20,42 +20,47 @@ MPU9250::MPU9250()
 
 void MPU9250::init()
 {
+    uint8_t magData[3];
+
     // Wake up
-    writeByte(PWR_MGMT_1, 0x00);
+    writeByte(I2C_ADDRESS, PWR_MGMT_1, 0x00);
     delay(100);
 
     // Get time source
-    writeByte(PWR_MGMT_1, 0x01);
+    writeByte(I2C_ADDRESS, PWR_MGMT_1, 0x01);
     delay(200);
 
     // Set Gyro and Temp bandwidth to 41 Hz and 42 Hz
     // Limit sample rate to 1 kHz each
-    writeByte(CONFIG, 0x03);
+    writeByte(I2C_ADDRESS, CONFIG, 0x03);
 
     // Sample rate = Gyro output / (1 + SMPLRT_DIV)
     // 200 hz
-    writeByte(SMPLRT_DIV, 0x04);
+    writeByte(I2C_ADDRESS, SMPLRT_DIV, 0x04);
 
     // Set Gyro full scale range
-    uint8_t conf = readByte(GYRO_CONFIG);
-    writeByte(GYRO_CONFIG, conf & ~0x02);
-    writeByte(GYRO_CONFIG, conf & ~0x18);
-    writeByte(GYRO_CONFIG, conf | GyroScale << 3);
+    uint8_t conf = readByte(I2C_ADDRESS, GYRO_CONFIG);
+    writeByte(I2C_ADDRESS, GYRO_CONFIG, conf & ~0x02);
+    writeByte(I2C_ADDRESS, GYRO_CONFIG, conf & ~0x18);
+    writeByte(I2C_ADDRESS, GYRO_CONFIG, conf | GyroScale << 3);
 
     // Set Accel full scale range
-    conf = readByte(ACCEL_CONFIG);
-    writeByte(ACCEL_CONFIG_2, conf & ~0x18);
-    writeByte(ACCEL_CONFIG_2, conf | AccelScale << 3);
+    conf = readByte(I2C_ADDRESS, ACCEL_CONFIG);
+    writeByte(I2C_ADDRESS, ACCEL_CONFIG_2, conf & ~0x18);
+    writeByte(I2C_ADDRESS, ACCEL_CONFIG_2, conf | AccelScale << 3);
 
     // Set Accel sample rate
-    conf = readByte(ACCEL_CONFIG_2);
-    writeByte(ACCEL_CONFIG_2, conf & ~0x0F);
-    writeByte(ACCEL_CONFIG_2, conf | 0x03);
+    conf = readByte(I2C_ADDRESS, ACCEL_CONFIG_2);
+    writeByte(I2C_ADDRESS, ACCEL_CONFIG_2, conf & ~0x0F);
+    writeByte(I2C_ADDRESS, ACCEL_CONFIG_2, conf | 0x03);
 
-    // Configure interrupts
-    writeByte(INT_PIN_CFG, 0x22);
-    writeByte(INT_ENABLE, 0x01);
+    // Configure interrupts and enable bypass mode
+    writeByte(I2C_ADDRESS, INT_PIN_CFG, 0x22);
+    writeByte(I2C_ADDRESS, INT_ENABLE, 0x01);
     delay(100);
+
+    // Magnetometer
+    
 
     setGyroRes();
     setAccelRes();
@@ -72,44 +77,44 @@ void MPU9250::calibrate()
     int32_t gyroOffset[3] = {0, 0, 0};
 
     //Reset
-    writeByte(PWR_MGMT_1, 0x80);
+    writeByte(I2C_ADDRESS, PWR_MGMT_1, 0x80);
     delay(100);
 
     // Set time source
-    writeByte(PWR_MGMT_1, 0x01);
-    writeByte(PWR_MGMT_2, 0x00);
+    writeByte(I2C_ADDRESS, PWR_MGMT_1, 0x01);
+    writeByte(I2C_ADDRESS, PWR_MGMT_2, 0x00);
     delay(200);
 
     // Prepare device for offset calculation
-    writeByte(INT_ENABLE, 0x00);
-    writeByte(FIFO_EN, 0x00);
-    writeByte(PWR_MGMT_1, 0x00);
-    writeByte(I2C_MST_CTRL, 0x00);
-    writeByte(USER_CTRL, 0x00);
-    writeByte(USER_CTRL, 0x0C);
+    writeByte(I2C_ADDRESS, INT_ENABLE, 0x00);
+    writeByte(I2C_ADDRESS, FIFO_EN, 0x00);
+    writeByte(I2C_ADDRESS, PWR_MGMT_1, 0x00);
+    writeByte(I2C_ADDRESS, I2C_MST_CTRL, 0x00);
+    writeByte(I2C_ADDRESS, USER_CTRL, 0x00);
+    writeByte(I2C_ADDRESS, USER_CTRL, 0x0C);
     delay(15);
 
     // Prepare gyro and accel for offset calculation
-    writeByte(CONFIG, 0x01);
-    writeByte(SMPLRT_DIV, 0x00);
-    writeByte(GYRO_CONFIG, 0x00);
-    writeByte(ACCEL_CONFIG, 0x00);
+    writeByte(I2C_ADDRESS, CONFIG, 0x01);
+    writeByte(I2C_ADDRESS, SMPLRT_DIV, 0x00);
+    writeByte(I2C_ADDRESS, GYRO_CONFIG, 0x00);
+    writeByte(I2C_ADDRESS, ACCEL_CONFIG, 0x00);
 
     // Configure FIFO for offset calculation
-    writeByte(USER_CTRL, 0x40);
-    writeByte(FIFO_EN, 0x78);
+    writeByte(I2C_ADDRESS, USER_CTRL, 0x40);
+    writeByte(I2C_ADDRESS, FIFO_EN, 0x78);
     delay(40);
 
     // Stop FIFO and read number of cycles
-    writeByte(FIFO_EN, 0x00);
-    readBytes(FIFO_COUNTH, 2, &data[0]);
+    writeByte(I2C_ADDRESS, FIFO_EN, 0x00);
+    readBytes(I2C_ADDRESS, FIFO_COUNTH, 2, &data[0]);
     fifoCount = ((uint16_t)data[0] << 8) | data[1];
     cycleCount = fifoCount / 12;
 
     for (index = 0; index < cycleCount; index++)
     {
         int16_t gyroTemp[3] = {0, 0, 0}, accelTemp[3] = {0, 0, 0};
-        readBytes(FIFO_R_W, 12, &data[0]);
+        readBytes(I2C_ADDRESS, FIFO_R_W, 12, &data[0]);
         accelTemp[0] = (int16_t) (((int16_t)data[0] << 8) | data[1]);
         accelTemp[1] = (int16_t) (((int16_t)data[2] << 8) | data[3]);
         accelTemp[2] = (int16_t) (((int16_t)data[4] << 8) | data[5]);
@@ -144,23 +149,23 @@ void MPU9250::calibrate()
     data[5] = (-gyroOffset[2]/4) & 0xFF;
 
     // Write gyro offsets.
-    writeByte(XG_OFFSET_H, data[0]);
-    writeByte(XG_OFFSET_L, data[1]);
-    writeByte(YG_OFFSET_H, data[2]);
-    writeByte(YG_OFFSET_L, data[3]);
-    writeByte(ZG_OFFSET_H, data[4]);
-    writeByte(ZG_OFFSET_L, data[5]);
+    writeByte(I2C_ADDRESS, XG_OFFSET_H, data[0]);
+    writeByte(I2C_ADDRESS, XG_OFFSET_L, data[1]);
+    writeByte(I2C_ADDRESS, YG_OFFSET_H, data[2]);
+    writeByte(I2C_ADDRESS, YG_OFFSET_L, data[3]);
+    writeByte(I2C_ADDRESS, ZG_OFFSET_H, data[4]);
+    writeByte(I2C_ADDRESS, ZG_OFFSET_L, data[5]);
 }
 
 uint8_t MPU9250::whoAmI()
 {
-    return readByte(WHO_AM_I);
+    return readByte(I2C_ADDRESS, WHO_AM_I);
 }
 
 void MPU9250::readAccelData(int16_t* dest)
 {
   uint8_t rawData[6];
-  readBytes(ACCEL_XOUT_H, 6, &rawData[0]);
+  readBytes(I2C_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);
   dest[0] = (((int16_t)rawData[0] << 8) | rawData[1]) - accelOffset[0];
   dest[1] = (((int16_t)rawData[2] << 8) | rawData[3]) - accelOffset[1];
   dest[2] = (((int16_t)rawData[4] << 8) | rawData[5]) - accelOffset[2];
@@ -169,7 +174,7 @@ void MPU9250::readAccelData(int16_t* dest)
 void MPU9250::readGyroData(int16_t* dest)
 {
   uint8_t rawData[6];
-  readBytes(GYRO_XOUT_H, 6, &rawData[0]);
+  readBytes(I2C_ADDRESS, GYRO_XOUT_H, 6, &rawData[0]);
   dest[0] = (((int16_t)rawData[0] << 8) | rawData[1]);
   dest[1] = (((int16_t)rawData[2] << 8) | rawData[3]);
   dest[2] = (((int16_t)rawData[4] << 8) | rawData[5]);
@@ -226,20 +231,34 @@ void MPU9250::setAccelRes()
 // pow(2, 16-1) = 32768.0
 void MPU9250::setMagRes()
 {
-
+    switch (MagScale)
+    {
+        case AFS_2G:
+            accelRes = 2.0 / 32768.0;
+            break;
+        case AFS_4G:
+            accelRes = 4.0 / 32768.0;
+            break;
+        case AFS_8G:
+            accelRes = 8.0 / 32768.0;
+            break;
+        case AFS_16G:
+            accelRes = 16.0 / 32768.0;
+            break;
+    }
 }
 
-void MPU9250::writeByte(uint8_t reg, uint8_t data)
+void MPU9250::writeByte(uint8_t addr, uint8_t reg, uint8_t data)
 {
-    Wire.beginTransmission(I2C_ADDRESS);
+    Wire.beginTransmission(addr);
     Wire.write(reg);
     Wire.write(data);
     Wire.endTransmission();
 }
 
-void MPU9250::writeBytes(uint8_t reg, uint8_t* data, uint8_t length)
+void MPU9250::writeBytes(uint8_t addr, uint8_t reg, uint8_t* data, uint8_t length)
 {
-    Wire.beginTransmission(I2C_ADDRESS);
+    Wire.beginTransmission(addr);
     Wire.write(reg);
 
     for (int i = 0; i < length; i++)
@@ -250,27 +269,27 @@ void MPU9250::writeBytes(uint8_t reg, uint8_t* data, uint8_t length)
     Wire.endTransmission();
 }
 
-uint8_t MPU9250::readByte(uint8_t reg)
+uint8_t MPU9250::readByte(uint8_t addr, uint8_t reg)
 {
     uint8_t data;
 
-    Wire.beginTransmission(I2C_ADDRESS);
+    Wire.beginTransmission(addr);
     Wire.write(reg);
     Wire.endTransmission(false);
-    Wire.requestFrom((uint8_t)I2C_ADDRESS, (uint8_t) 1);
+    Wire.requestFrom((uint8_t)addr, (uint8_t) 1);
     data = Wire.read();
 
     return data;
 }
 
-void MPU9250::readBytes(uint8_t reg, uint8_t count, uint8_t* dest)
+void MPU9250::readBytes(uint8_t addr, uint8_t reg, uint8_t count, uint8_t* dest)
 {
     uint8_t i = 0;
 
-    Wire.beginTransmission(I2C_ADDRESS);
+    Wire.beginTransmission(addr);
     Wire.write(reg);
     Wire.endTransmission(false);
-    Wire.requestFrom((uint8_t)I2C_ADDRESS, (uint8_t)count);
+    Wire.requestFrom((uint8_t)addr, (uint8_t)count);
 
     while (Wire.available())
     {

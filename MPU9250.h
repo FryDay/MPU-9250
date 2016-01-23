@@ -221,11 +221,19 @@ enum AccelScale
     AFS_16G
 };
 
+enum MagScale
+{
+    MFS_14BIT = 0,
+    MFS_16BITS
+};
+
 class MPU9250
 {
 public:
     uint8_t GyroScale = GFS_250DPS;
     uint8_t AccelScale = AFS_2G;
+    uint8_t MagScale = MFS_16BITS;
+
     uint16_t gyroSensitivity = 131;
     uint16_t accelSensitivity = 16384;
     int32_t accelOffset[3] = {0, 0, 0};
@@ -243,10 +251,10 @@ private:
     void setGyroRes();
     void setAccelRes();
     void setMagRes();
-    void writeByte(uint8_t reg, uint8_t data);
-    void writeBytes(uint8_t reg, uint8_t* data, uint8_t length);
-    uint8_t readByte(uint8_t reg);
-    void readBytes(uint8_t reg, uint8_t count, uint8_t* dest);
+    void writeByte(uint8_t addr, uint8_t reg, uint8_t data);
+    void writeBytes(uint8_t addr, uint8_t reg, uint8_t* data, uint8_t length);
+    uint8_t readByte(uint8_t addr, uint8_t reg);
+    void readBytes(uint8_t addr, uint8_t reg, uint8_t count, uint8_t* dest);
 };
 
 #endif // _MPU9250_H_
