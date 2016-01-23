@@ -16,9 +16,6 @@ Please reference the LICENSE file
 MPU9250 imu;
 
 int16_t accel[3];
-float fXg = 0;
-float fYg = 0;
-float fZg = 0;
 
 void setup()
 {
@@ -37,10 +34,6 @@ void loop()
     fY = (float)accel[1] * imu.accelRes;
     fZ = (float)accel[2] * imu.accelRes;
 
-    fXg = fX * alpha + (fXg * (1.0 - alpha));
-    fYg = fY * alpha + (fYg * (1.0 - alpha));
-    fZg = fZ * alpha + (fZg * (1.0 - alpha));
-
     // Print g force
     /*Serial.print("X: ");
     Serial.print(fX);
@@ -49,13 +42,13 @@ void loop()
     Serial.print(" Z: ");
     Serial.println(fZ);*/
 
-    roll = atan2(fXg, fZg) * 180.0 / M_PI;
-    pitch = atan2(fYg, fZg) * 180.0 / M_PI;
+    pitch = (atan2(fY, sqrt(fX * fX + fZ * fZ)) * 180.0) / M_PI;
+    roll = (atan2(fX, sqrt(fY * fY + fZ * fZ)) * 180.0) / M_PI;
 
     Serial.print("Roll: ");
-    Serial.print(roll);
+    Serial.print((int8_t)roll);
     Serial.print("\tPitch: ");
-    Serial.println(pitch);
+    Serial.println((int8_t)pitch);
 
     delay(50);
 }
