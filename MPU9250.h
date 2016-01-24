@@ -190,7 +190,7 @@ Please reference the LICENSE file
 #define MAG_RSV             0x0B
 
 // Magnetometer Tests
-#define MAG_ASTC            0x0C
+#define MAG_ADDRESS         0x0C
 #define MAG_TS1             0x0D
 #define MAG_TS2             0x0E
 
@@ -202,7 +202,7 @@ Please reference the LICENSE file
 #define MAG_ASAY            0x11
 #define MAG_ASAZ            0x12
 
-// Hardcoded for now
+// Hardcoded for Now
 #define I2C_ADDRESS         0x68
 
 enum GyroScale
@@ -234,23 +234,30 @@ public:
     uint8_t AccelScale = AFS_2G;
     uint8_t MagScale = MFS_16BITS;
 
-    uint16_t gyroSensitivity = 131;
-    uint16_t accelSensitivity = 16384;
-    int32_t accelOffset[3] = {0, 0, 0};
-    float accelRes, gyroRes, magRes;
+    uint16_t GyroSensitivity = 131;
+    uint16_t AccelSensitivity = 16384;
+    int32_t AccelOffset[3] = {0, 0, 0};
+    //float MagOffset[3] = {0, 0, 0};
+    //uint8_t MagMode = 0x02;
+    float AccelRes, GyroRes;//, MagRes;
+    float DeltaTime, Now, LastUpdate;
 
     MPU9250();
     void init();
     void calibrate();
 
     uint8_t whoAmI();
+    uint8_t whoAmIMag();
 
     void readAccelData(int16_t* dest);
     void readGyroData(int16_t* dest);
+    void readMagData(int16_t* dest);
+
+    void complementaryFilter(int16_t accel[3], int16_t gyro[3], float* pitch, float* roll, float* yaw);
 private:
     void setGyroRes();
     void setAccelRes();
-    void setMagRes();
+    //void setMagRes();
     void writeByte(uint8_t addr, uint8_t reg, uint8_t data);
     void writeBytes(uint8_t addr, uint8_t reg, uint8_t* data, uint8_t length);
     uint8_t readByte(uint8_t addr, uint8_t reg);

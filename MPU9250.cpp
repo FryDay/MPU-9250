@@ -59,12 +59,33 @@ void MPU9250::init()
     writeByte(I2C_ADDRESS, INT_ENABLE, 0x01);
     delay(100);
 
-    // Magnetometer
-    
+    //----- Magnetometer -----
+
+    //Power down magnetometer;
+    // writeByte(MAG_ADDRESS, MAG_CNTL, 0x00);
+    // delay(10);
+    //
+    // // Enter Fuse ROM access mode
+    // writeByte(MAG_ADDRESS, MAG_CNTL, 0x0F);
+    // delay(10);
+    //
+    // // Get calibration
+    // readBytes(MAG_ADDRESS, MAG_ASAX, 3, &magData[0]);
+    // magOffset[0] = (float)(magData[0] - 128) / 256.0 + 1.0;
+    // magOffset[1] = (float)(magData[1] - 128) / 256.0 + 1.0;
+    // magOffset[2] = (float)(magData[2] - 128) / 256.0 + 1.0;
+    //
+    // //Power down magnetometer;
+    // writeByte(MAG_ADDRESS, MAG_CNTL, 0x00);
+    // delay(10);
+
+    // Configure the magnetometer for continuous read and highest resolution
+    // writeByte(MAG_ADDRESS, MAG_CNTL, MagScale << 4 | magMode);
+    // delay(10);
 
     setGyroRes();
     setAccelRes();
-    setMagRes();
+    //setMagRes();
 }
 
 void MPU9250::calibrate()
@@ -122,24 +143,24 @@ void MPU9250::calibrate()
         gyroTemp[1] = (int16_t) (((int16_t)data[8] << 8) | data[9]);
         gyroTemp[2] = (int16_t) (((int16_t)data[10] << 8) | data[11]);
 
-        accelOffset[0] += (int32_t) accelTemp[0];
-        accelOffset[1] += (int32_t) accelTemp[1];
-        accelOffset[2] += (int32_t) accelTemp[2];
+        AccelOffset[0] += (int32_t) accelTemp[0];
+        AccelOffset[1] += (int32_t) accelTemp[1];
+        AccelOffset[2] += (int32_t) accelTemp[2];
         gyroOffset[0]  += (int32_t) gyroTemp[0];
         gyroOffset[1]  += (int32_t) gyroTemp[1];
         gyroOffset[2]  += (int32_t) gyroTemp[2];
     }
 
-    accelOffset[0] /= (int32_t) cycleCount;
-    accelOffset[1] /= (int32_t) cycleCount;
-    accelOffset[2] /= (int32_t) cycleCount;
+    AccelOffset[0] /= (int32_t) cycleCount;
+    AccelOffset[1] /= (int32_t) cycleCount;
+    AccelOffset[2] /= (int32_t) cycleCount;
     gyroOffset[0] /= (int32_t) cycleCount;
     gyroOffset[1] /= (int32_t) cycleCount;
     gyroOffset[2] /= (int32_t) cycleCount;
 
     // Make sure we don't remove gravity.
-    if(accelOffset[2] > 0L) {accelOffset[2] -= (int32_t) accelSensitivity;}
-    else {accelOffset[2] += (int32_t) accelSensitivity;}
+    if(AccelOffset[2] > 0L) {AccelOffset[2] -= (int32_t) AccelSensitivity;}
+    else {AccelOffset[2] += (int32_t) AccelSensitivity;}
 
     data[0] = (-gyroOffset[0]/4 >> 8) & 0xFF;
     data[1] = (-gyroOffset[0]/4) & 0xFF;
@@ -162,13 +183,18 @@ uint8_t MPU9250::whoAmI()
     return readByte(I2C_ADDRESS, WHO_AM_I);
 }
 
+uint8_t MPU9250::whoAmIMag()
+{
+    return readByte(MAG_ADDRESS, MAG_WHO_AM_I);
+}
+
 void MPU9250::readAccelData(int16_t* dest)
 {
   uint8_t rawData[6];
   readBytes(I2C_ADDRESS, ACCEL_XOUT_H, 6, &rawData[0]);
-  dest[0] = (((int16_t)rawData[0] << 8) | rawData[1]) - accelOffset[0];
-  dest[1] = (((int16_t)rawData[2] << 8) | rawData[3]) - accelOffset[1];
-  dest[2] = (((int16_t)rawData[4] << 8) | rawData[5]) - accelOffset[2];
+  dest[0] = (((int16_t)rawData[0] << 8) | rawData[1]) - AccelOffset[0];
+  dest[1] = (((int16_t)rawData[2] << 8) | rawData[3]) - AccelOffset[1];
+  dest[2] = (((int16_t)rawData[4] << 8) | rawData[5]) - AccelOffset[2];
 }
 
 void MPU9250::readGyroData(int16_t* dest)
@@ -178,6 +204,46 @@ void MPU9250::readGyroData(int16_t* dest)
   dest[0] = (((int16_t)rawData[0] << 8) | rawData[1]);
   dest[1] = (((int16_t)rawData[2] << 8) | rawData[3]);
   dest[2] = (((int16_t)rawData[4] << 8) | rawData[5]);
+}
+
+void MPU9250::readMagData(int16_t* dest)
+{
+    uint8_t rawData[7];
+    if (readByte(MAG_ADDRESS, MAG_ST1) & 0x01)
+    {
+        readBytes(MAG_ADDRESS, MAG_XOUT_L, 7, &rawData[0]);
+        uint8_t c = rawData[6];
+        if (!(c & 0x08))
+        {
+            dest[0] = (((int16_t)rawData[1] << 8) | rawData[0]);
+            dest[1] = (((int16_t)rawData[3] << 8) | rawData[2]);
+            dest[2] = (((int16_t)rawData[5] << 8) | rawData[4]);
+        }
+    }
+}
+
+void MPU9250::complementaryFilter(int16_t accel[3], int16_t gyro[3], float* pitch, float* roll, float* yaw)
+{
+    float gx, gy, gz;
+    float pAccel, rAccel;
+
+    gx = (float)gyro[0] * GyroRes;
+    gy = (float)gyro[1] * GyroRes;
+    gz = (float)gyro[2] * GyroRes;
+
+    *pitch += gx * DeltaTime;
+    *roll += gy * DeltaTime;
+    *yaw += gz * DeltaTime;
+
+    uint16_t force = abs(accel[0]) + abs(accel[1]) + abs(accel[2]);
+    if (force > 8192 && force < 32768)
+    {
+        pAccel = atan2f(accel[1], accel[2]) * 180.0 / M_PI;
+        *pitch = *pitch * 0.98 + pAccel * 0.02;
+
+        rAccel = atan2f(accel[0], accel[2]) * 180.0 / M_PI;
+        *roll = *roll * 0.98 + rAccel * 0.02;
+    }
 }
 
 // ----- Private -----
@@ -190,16 +256,16 @@ void MPU9250::setGyroRes()
     switch (GyroScale)
     {
         case GFS_250DPS:
-            gyroRes = 250.0 / 32768.0;
+            GyroRes = 250.0 / 32768.0;
             break;
         case GFS_500DPS:
-            gyroRes = 500.0 / 32768.0;
+            GyroRes = 500.0 / 32768.0;
             break;
         case GFS_1000DPS:
-            gyroRes = 1000.0 / 32768.0;
+            GyroRes = 1000.0 / 32768.0;
             break;
         case GFS_2000DPS:
-            gyroRes = 2000.0 / 32768.0;
+            GyroRes = 2000.0 / 32768.0;
             break;
     }
 }
@@ -212,16 +278,16 @@ void MPU9250::setAccelRes()
     switch (AccelScale)
     {
         case AFS_2G:
-            accelRes = 2.0 / 32768.0;
+            AccelRes = 2.0 / 32768.0;
             break;
         case AFS_4G:
-            accelRes = 4.0 / 32768.0;
+            AccelRes = 4.0 / 32768.0;
             break;
         case AFS_8G:
-            accelRes = 8.0 / 32768.0;
+            AccelRes = 8.0 / 32768.0;
             break;
         case AFS_16G:
-            accelRes = 16.0 / 32768.0;
+            AccelRes = 16.0 / 32768.0;
             break;
     }
 }
@@ -229,24 +295,18 @@ void MPU9250::setAccelRes()
 // Res = Range / pow(2, Resolution-1)
 // 16 bit resolution
 // pow(2, 16-1) = 32768.0
-void MPU9250::setMagRes()
-{
-    switch (MagScale)
-    {
-        case AFS_2G:
-            accelRes = 2.0 / 32768.0;
-            break;
-        case AFS_4G:
-            accelRes = 4.0 / 32768.0;
-            break;
-        case AFS_8G:
-            accelRes = 8.0 / 32768.0;
-            break;
-        case AFS_16G:
-            accelRes = 16.0 / 32768.0;
-            break;
-    }
-}
+// void MPU9250::setMagRes()
+// {
+//     switch (MagScale)
+//     {
+//         case MFS_14BIT:
+//             MagRes = 10.0 * 4912.0 / 8190.0;
+//             break;
+//         case MFS_16BITS:
+//             MagRes = 10.0 * 4912.0 / 32760.0;
+//             break;
+//     }
+// }
 
 void MPU9250::writeByte(uint8_t addr, uint8_t reg, uint8_t data)
 {

@@ -29,9 +29,9 @@ void loop()
     imu.readGyroData(&gyro[0]);
 
     // Convert raw data to degrees per second
-    fX = (float)gyro[0] * imu.gyroRes;
-    fY = (float)gyro[1] * imu.gyroRes;
-    fZ = (float)gyro[2] * imu.gyroRes;
+    fX = (float)gyro[0] * imu.GyroRes;
+    fY = (float)gyro[1] * imu.GyroRes;
+    fZ = (float)gyro[2] * imu.GyroRes;
 
     Serial.print("Pitch:");
     if (fX >= 0)

@@ -29,9 +29,9 @@ void loop()
 
     imu.readAccelData(&accel[0]);
 
-    fX = (float)accel[0] * imu.accelRes;
-    fY = (float)accel[1] * imu.accelRes;
-    fZ = (float)accel[2] * imu.accelRes;
+    fX = (float)accel[0] * imu.AccelRes;
+    fY = (float)accel[1] * imu.AccelRes;
+    fZ = (float)accel[2] * imu.AccelRes;
 
     // Print g force
     /*Serial.print("X: ");
@@ -46,7 +46,7 @@ void loop()
 
     Serial.print("Roll: ");
     Serial.print((int8_t)roll);
-    Serial.print("\tPitch: ");
+    Serial.print("  Pitch: ");
     Serial.println((int8_t)pitch);
 
     delay(50);
